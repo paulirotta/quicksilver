@@ -1,12 +1,13 @@
-#[cfg(feature="nalgebra")] use nalgebra::core::Matrix3;
+#[cfg(feature = "nalgebra")]
+use nalgebra::core::Matrix3;
 
 use crate::geom::{about_equal, Scalar, Vector};
 use std::{
-    ops::Mul,
+    cmp::{Eq, PartialEq},
+    default::Default,
     f32::consts::PI,
     fmt,
-    default::Default,
-    cmp::{Eq, PartialEq}
+    ops::{Add, AddAssign, Mul, Sub},
 };
 
 /// A 2D transformation represented by a matrix
@@ -37,9 +38,8 @@ pub struct Transform([[f32; 3]; 3]);
 
 impl Transform {
     ///The identity transformation
-    pub const IDENTITY: Transform = Transform([[1f32, 0f32, 0f32],
-                  [0f32, 1f32, 0f32],
-                  [0f32, 0f32, 1f32]]);
+    pub const IDENTITY: Transform =
+        Transform([[1f32, 0f32, 0f32], [0f32, 1f32, 0f32], [0f32, 0f32, 1f32]]);
 
     ///Create a Transform from an arbitrary matrix in a column-major matrix
     pub fn from_array(array: [[f32; 3]; 3]) -> Transform {
@@ -51,37 +51,37 @@ impl Transform {
         let angle = angle.float();
         let c = (angle * PI / 180f32).cos();
         let s = (angle * PI / 180f32).sin();
-        Transform([[c, -s, 0f32],
-                  [s, c, 0f32],
-                  [0f32, 0f32, 1f32]])
+        Transform([[c, -s, 0f32], [s, c, 0f32], [0f32, 0f32, 1f32]])
     }
 
     ///Create a translation transformation
     pub fn translate(vec: impl Into<Vector>) -> Transform {
         let vec = vec.into();
-        Transform([[1f32, 0f32, vec.x],
-                  [0f32, 1f32, vec.y],
-                  [0f32, 0f32, 1f32]])
+        Transform([[1f32, 0f32, vec.x], [0f32, 1f32, vec.y], [0f32, 0f32, 1f32]])
     }
 
     ///Create a scale transformation
     pub fn scale(vec: impl Into<Vector>) -> Transform {
         let vec = vec.into();
-        Transform([[vec.x, 0f32, 0f32],
-                  [0f32, vec.y, 0f32],
-                  [0f32, 0f32, 1f32]])
+        Transform([[vec.x, 0f32, 0f32], [0f32, vec.y, 0f32], [0f32, 0f32, 1f32]])
     }
-   
-    #[cfg(feature="nalgebra")]
+
+    #[cfg(feature = "nalgebra")]
     ///Convert the Transform into an nalgebra Matrix3
     pub fn into_matrix(self) -> Matrix3<f32> {
         Matrix3::new(
-            self.0[0][0], self.0[0][1], self.0[0][2],
-            self.0[1][0], self.0[1][1], self.0[1][2],
-            self.0[2][0], self.0[2][1], self.0[2][2],
+            self.0[0][0],
+            self.0[0][1],
+            self.0[0][2],
+            self.0[1][0],
+            self.0[1][1],
+            self.0[1][2],
+            self.0[2][0],
+            self.0[2][1],
+            self.0[2][2],
         )
     }
- 
+
     ///Find the inverse of a Transform
     ///
     /// A transform's inverse will cancel it out when multplied with it, as seen below:
@@ -95,8 +95,7 @@ impl Transform {
     /// ```
     #[must_use]
     pub fn inverse(&self) -> Transform {
-        let det = 
-            self.0[0][0] * (self.0[1][1] * self.0[2][2] - self.0[2][1] * self.0[1][2])
+        let det = self.0[0][0] * (self.0[1][1] * self.0[2][2] - self.0[2][1] * self.0[1][2])
             - self.0[0][1] * (self.0[1][0] * self.0[2][2] - self.0[1][2] * self.0[2][0])
             + self.0[0][2] * (self.0[1][0] * self.0[2][1] - self.0[1][1] * self.0[2][0]);
 
@@ -128,6 +127,47 @@ impl Mul<Transform> for Transform {
                 for k in 0..3 {
                     returnval.0[i][j] += other.0[k][j] * self.0[i][k];
                 }
+            }
+        }
+        returnval
+    }
+}
+
+/// Add the values of two transforms together
+///
+/// Note you probably want Mul to combine Transforms. Addition is only useful in less common use cases like interpolation
+impl Add<Transform> for Transform {
+    type Output = Transform;
+
+    fn add(self, other: Transform) -> Transform {
+        let mut returnval = Transform::IDENTITY;
+        for i in 0..3 {
+            for j in 0..3 {
+                returnval.0[i][j] = other.0[i][j] + self.0[i][j];
+            }
+        }
+        returnval
+    }
+}
+
+/// Uses the `impl Add<Transform> for Transform` internally
+impl AddAssign<Transform> for Transform {
+    fn add_assign(&mut self, other: Transform) {
+        *self = *self + other;
+    }
+}
+
+/// Subtract the values of one transform from another
+///
+/// Note you probably want Mul to combine Transforms. Subtraction is only useful in less common use cases like interpolation
+impl Sub<Transform> for Transform {
+    type Output = Transform;
+
+    fn sub(self, other: Transform) -> Transform {
+        let mut returnval = Transform::IDENTITY;
+        for i in 0..3 {
+            for j in 0..3 {
+                returnval.0[i][j] = self.0[i][j] - other.0[i][j];
             }
         }
         returnval
@@ -184,7 +224,6 @@ impl Default for Transform {
     }
 }
 
-
 impl PartialEq for Transform {
     fn eq(&self, other: &Transform) -> bool {
         for i in 0..3 {
@@ -200,13 +239,14 @@ impl PartialEq for Transform {
 
 impl Eq for Transform {}
 
-
-#[cfg(feature="nalgebra")]
+#[cfg(feature = "nalgebra")]
 impl From<Matrix3<f32>> for Transform {
     fn from(other: Matrix3<f32>) -> Transform {
-        Transform([[other[0], other[1], other[2]],
-                  [other[3], other[4], other[5]],
-                  [other[6], other[7], other[8]]])
+        Transform([
+            [other[0], other[1], other[2]],
+            [other[3], other[4], other[5]],
+            [other[6], other[7], other[8]],
+        ])
     }
 }
 
@@ -251,16 +291,19 @@ mod tests {
 
     #[test]
     fn identity() {
-        let trans = Transform::IDENTITY * Transform::translate(Vector::ZERO) *
-            Transform::rotate(0f32) * Transform::scale(Vector::ONE);
+        let trans = Transform::IDENTITY
+            * Transform::translate(Vector::ZERO)
+            * Transform::rotate(0f32)
+            * Transform::scale(Vector::ONE);
         let vec = Vector::new(15, 12);
         assert_eq!(vec, trans * vec);
     }
 
     #[test]
     fn complex_inverse() {
-        let a = Transform::rotate(5f32) * Transform::scale(Vector::new(0.2, 1.23)) *
-            Transform::translate(Vector::ONE * 100f32);
+        let a = Transform::rotate(5f32)
+            * Transform::scale(Vector::new(0.2, 1.23))
+            * Transform::translate(Vector::ONE * 100f32);
         let a_inv = a.inverse();
         let vec = Vector::new(120f32, 151f32);
         assert_eq!(vec, a * a_inv * vec);
@@ -268,12 +311,15 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature="nalgebra")]
+    #[cfg(feature = "nalgebra")]
     fn conversion() {
         let transform = Transform::rotate(5);
         let vector = Vector::new(1, 2);
         let na_matrix = transform.into_matrix();
         let na_vector = vector.into_vector();
-        assert_eq!(transform * vector, (na_matrix.transform_vector(&na_vector)).into());
+        assert_eq!(
+            transform * vector,
+            (na_matrix.transform_vector(&na_vector)).into()
+        );
     }
 }
