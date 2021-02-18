@@ -13,10 +13,6 @@ pub struct Triangle {
 }
 
 impl Triangle {
-    #[deprecated(
-        since = "0.4.0-alpha0.5",
-        note = "Use another collision library like `vek` instead; please comment on issue #552 for use-cases other libraries don't solve"
-    )]
     ///Create a triangle from `Vector`s of all three points
     pub fn new(a: Vector, b: Vector, c: Vector) -> Triangle {
         Triangle { a, b, c }
